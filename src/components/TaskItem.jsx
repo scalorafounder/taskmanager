@@ -38,13 +38,13 @@ function CheckCircle({ checked, onToggle, size = 22 }) {
   )
 }
 
-function SubTaskRow({ sub, groupId, onToggle }) {
+function SubTaskRow({ sub, groupId, onToggle, onDelete }) {
   return (
     <motion.div
       layout
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
-      className="flex items-center gap-2.5 py-1.5 px-1"
+      className="flex items-center gap-2.5 py-1.5 px-1 group"
     >
       <CheckCircle checked={sub.completed} onToggle={() => onToggle(groupId, sub.id)} size={18} />
       <span
@@ -56,6 +56,17 @@ function SubTaskRow({ sub, groupId, onToggle }) {
       >
         {sub.title}
       </span>
+      <motion.button
+        whileTap={{ scale: 0.8 }}
+        whileHover={{ scale: 1.1 }}
+        onClick={() => onDelete(groupId, sub.id)}
+        className="w-5 h-5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)', flexShrink: 0 }}
+      >
+        <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
+          <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </motion.button>
     </motion.div>
   )
 }
@@ -65,6 +76,7 @@ export default function TaskItem({
   onToggle,
   onToggleSub,
   onDelete,
+  onDeleteSub,
   onRename,
   onAddSub,
   onClearPendingRename,
@@ -287,7 +299,7 @@ export default function TaskItem({
                   onTouchStart={e => e.stopPropagation()}
                 >
                   {task.children?.map(sub => (
-                    <SubTaskRow key={sub.id} sub={sub} groupId={task.id} onToggle={onToggleSub} />
+                    <SubTaskRow key={sub.id} sub={sub} groupId={task.id} onToggle={onToggleSub} onDelete={onDeleteSub} />
                   ))}
 
                   {addingSubTask ? (

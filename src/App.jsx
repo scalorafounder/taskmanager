@@ -78,7 +78,7 @@ function AppContent() {
 
   const {
     tasks, initTasks,
-    addTask, toggleTask, toggleSubTask, deleteTask,
+    addTask, toggleTask, toggleSubTask, deleteTask, deleteSubTask,
     renameGroup, addSubTask, reorder, mergeIntoGroup, clearPendingRename,
   } = useTasks()
 
@@ -195,6 +195,7 @@ function AppContent() {
               onToggle={toggleTask}
               onToggleSub={toggleSubTask}
               onDelete={deleteTask}
+              onDeleteSub={deleteSubTask}
               onRename={renameGroup}
               onAddSub={addSubTask}
               onReorder={reorder}

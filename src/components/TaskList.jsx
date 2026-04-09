@@ -23,6 +23,7 @@ export default function TaskList({
   onToggle,
   onToggleSub,
   onDelete,
+  onDeleteSub,
   onRename,
   onAddSub,
   onReorder,
@@ -131,6 +132,7 @@ export default function TaskList({
                 onToggle={onToggle}
                 onToggleSub={onToggleSub}
                 onDelete={onDelete}
+                onDeleteSub={onDeleteSub}
                 onRename={onRename}
                 onAddSub={onAddSub}
                 onClearPendingRename={onClearPendingRename}

@@ -42,6 +42,14 @@ export function useTasks() {
     setTasks(prev => prev.filter(t => t.id !== id))
   }, [])
 
+  const deleteSubTask = useCallback((groupId, childId) => {
+    setTasks(prev => prev.map(g => {
+      if (g.id !== groupId || g.type !== 'group') return g
+      const newChildren = g.children.filter(c => c.id !== childId)
+      return { ...g, children: newChildren, completed: newChildren.length > 0 && newChildren.every(c => c.completed) }
+    }))
+  }, [])
+
   const renameGroup = useCallback((id, title) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, title } : t))
   }, [])
@@ -118,6 +126,7 @@ export function useTasks() {
     toggleTask,
     toggleSubTask,
     deleteTask,
+    deleteSubTask,
     renameGroup,
     addSubTask,
     reorder,
