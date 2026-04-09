@@ -36,8 +36,8 @@ export default function TaskList({
   const mergeTriggeredRef = useRef(false)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
   )
 
   const activeTask = tasks.find(t => t.id === activeId)
@@ -99,14 +99,14 @@ export default function TaskList({
       >
         <div
           className="w-14 h-14 rounded-2xl flex items-center justify-center"
-          style={{ background: 'rgba(99,102,241,0.08)' }}
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M9 11l3 3L22 4" stroke="#a5b4fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="#a5b4fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M9 11l3 3L22 4" stroke="rgba(255,255,255,0.25)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
-        <p className="text-sm font-medium" style={{ color: '#9ca3af' }}>{emptyLabel}</p>
+        <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.2)' }}>{emptyLabel}</p>
       </motion.div>
     )
   }

@@ -151,7 +151,9 @@ export default function TaskItem({
       </AnimatePresence>
 
       <div
-        className="relative overflow-hidden"
+        {...attributes}
+        {...listeners}
+        className="relative overflow-hidden touch-none"
         style={{
           background: isDragOverlay
             ? 'rgba(30,30,35,0.98)'
@@ -165,6 +167,9 @@ export default function TaskItem({
           boxShadow: isDragOverlay
             ? '0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4)'
             : '0 2px 12px rgba(0,0,0,0.3)',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
         }}
       >
         {/* Group progress bar */}
@@ -182,23 +187,10 @@ export default function TaskItem({
 
         {/* Main row */}
         <div className="flex items-center gap-3 px-4 py-3.5">
-          {/* Drag handle */}
-          <div
-            {...attributes}
-            {...listeners}
-            className="flex-shrink-0 flex flex-col gap-0.5 cursor-grab active:cursor-grabbing touch-none"
-            style={{ opacity: 0.2 }}
-          >
-            {[0, 1, 2].map(i => (
-              <div key={i} className="flex gap-0.5">
-                <div className="w-1 h-1 rounded-full bg-white"/>
-                <div className="w-1 h-1 rounded-full bg-white"/>
-              </div>
-            ))}
-          </div>
-
           {/* Checkbox */}
-          <CheckCircle checked={task.completed} onToggle={() => onToggle(task.id)} />
+          <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+            <CheckCircle checked={task.completed} onToggle={() => onToggle(task.id)} />
+          </div>
 
           {/* Title */}
           <div className="flex-1 min-w-0">
@@ -240,7 +232,11 @@ export default function TaskItem({
           </div>
 
           {/* Right actions */}
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div
+            className="flex items-center gap-1 flex-shrink-0"
+            onPointerDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+          >
             {isGroup && (
               <motion.button
                 whileTap={{ scale: 0.85 }}
@@ -287,6 +283,8 @@ export default function TaskItem({
                 <div
                   className="mx-4 mb-3 rounded-2xl px-3 py-2"
                   style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  onPointerDown={e => e.stopPropagation()}
+                  onTouchStart={e => e.stopPropagation()}
                 >
                   {task.children?.map(sub => (
                     <SubTaskRow key={sub.id} sub={sub} groupId={task.id} onToggle={onToggleSub} />
