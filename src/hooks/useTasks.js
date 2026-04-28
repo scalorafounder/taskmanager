@@ -10,16 +10,22 @@ export function useTasks() {
     setTasks(loaded)
   }, [])
 
-  const addTask = useCallback((title) => {
+  const addTask = useCallback((title, dueDate = null, description = '') => {
     const task = {
       id: uid(),
       title,
       completed: false,
       type: 'task',
       createdAt: Date.now(),
+      dueDate,
+      description,
     }
     setTasks(prev => [task, ...prev])
     return task
+  }, [])
+
+  const updateTask = useCallback((id, patch) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))
   }, [])
 
   const toggleTask = useCallback((id) => {
@@ -119,10 +125,48 @@ export function useTasks() {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, pendingRename: false } : t))
   }, [])
 
+  const extractFromGroup = useCallback((groupId, childId, overTaskId) => {
+    setTasks(prev => {
+      const group = prev.find(t => t.id === groupId)
+      if (!group) return prev
+      const child = (group.children || []).find(c => c.id === childId)
+      if (!child) return prev
+
+      const updatedGroup = { ...group, children: (group.children || []).filter(c => c.id !== childId) }
+      const newTask = { id: child.id, title: child.title, completed: child.completed, type: 'task', createdAt: Date.now() }
+
+      const withUpdatedGroup = prev.map(t => t.id === groupId ? updatedGroup : t)
+      const overIdx = withUpdatedGroup.findIndex(t => t.id === overTaskId)
+
+      const result = [...withUpdatedGroup]
+      if (overIdx !== -1) {
+        result.splice(overIdx, 0, newTask)
+      } else {
+        const groupIdx = result.findIndex(t => t.id === groupId)
+        result.splice(Math.max(0, groupIdx), 0, newTask)
+      }
+      return result
+    })
+  }, [])
+
+  const addGroup = useCallback(() => {
+    const group = {
+      id: uid(),
+      title: 'New Group',
+      completed: false,
+      type: 'group',
+      children: [],
+      createdAt: Date.now(),
+      pendingRename: true,
+    }
+    setTasks(prev => [group, ...prev])
+  }, [])
+
   return {
     tasks,
     initTasks,
     addTask,
+    updateTask,
     toggleTask,
     toggleSubTask,
     deleteTask,
@@ -132,5 +176,7 @@ export function useTasks() {
     reorder,
     mergeIntoGroup,
     clearPendingRename,
+    extractFromGroup,
+    addGroup,
   }
 }

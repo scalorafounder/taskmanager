@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSortable } from '@dnd-kit/sortable'
+import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 
 function CheckCircle({ checked, onToggle, size = 22 }) {
@@ -39,35 +40,79 @@ function CheckCircle({ checked, onToggle, size = 22 }) {
 }
 
 function SubTaskRow({ sub, groupId, onToggle, onDelete }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: sub.id })
+
   return (
     <motion.div
+      ref={setNodeRef}
       layout
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
-      className="flex items-center gap-2.5 py-1.5 px-1 group"
+      className="flex items-center gap-2.5 py-1.5 px-1"
+      style={{ opacity: isDragging ? 0.3 : 1 }}
     >
-      <CheckCircle checked={sub.completed} onToggle={() => onToggle(groupId, sub.id)} size={18} />
+      <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+        <CheckCircle checked={sub.completed} onToggle={() => onToggle(groupId, sub.id)} size={18} />
+      </div>
       <span
-        className="text-sm flex-1 transition-all"
+        {...attributes}
+        {...listeners}
+        className="text-sm flex-1 touch-none select-none"
         style={{
-          color: sub.completed ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.7)',
-          textDecoration: sub.completed ? 'line-through' : 'none',
+          color: sub.completed ? 'rgba(74,222,128,0.75)' : 'rgba(255,255,255,0.7)',
+          cursor: isDragging ? 'grabbing' : 'grab',
         }}
       >
         {sub.title}
       </span>
       <motion.button
         whileTap={{ scale: 0.8 }}
-        whileHover={{ scale: 1.1 }}
-        onClick={() => onDelete(groupId, sub.id)}
-        className="w-5 h-5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)', flexShrink: 0 }}
+        onPointerDown={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
+        onClick={e => { e.stopPropagation(); onDelete(groupId, sub.id) }}
+        className="w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0"
+        style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)' }}
       >
         <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
           <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
         </svg>
       </motion.button>
     </motion.div>
+  )
+}
+
+function formatShortDue(ts) {
+  const d = new Date(ts)
+  const now = new Date()
+  const diffMs = ts - Date.now()
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMs < 0) return 'Overdue'
+  if (diffDays === 0) {
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  }
+  if (diffDays === 1) return 'Tomorrow'
+  if (diffDays < 7) {
+    return d.toLocaleDateString(undefined, { weekday: 'short' })
+  }
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function UrgencyGradient({ dueDate, createdAt, borderRadius }) {
+  if (!dueDate) return null
+  const urgency = Math.max(0, Math.min(1, (Date.now() - (createdAt || dueDate - 86400000)) / (dueDate - (createdAt || dueDate - 86400000))))
+  const grayStop = Math.round((1 - urgency) * 85)
+  const redAlpha = (urgency * 0.38).toFixed(2)
+
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        borderRadius,
+        background: `linear-gradient(to right, transparent 0%, rgba(180,180,180,0.05) ${grayStop}%, rgba(255,65,65,${redAlpha}) 100%)`,
+        zIndex: 0,
+      }}
+    />
   )
 }
 
@@ -79,9 +124,11 @@ export default function TaskItem({
   onDeleteSub,
   onRename,
   onAddSub,
+  onExpand,
   onClearPendingRename,
   isDragOverlay = false,
   isDropTarget = false,
+  gradientTick,
 }) {
   const [expanded, setExpanded] = useState(true)
   const [editingName, setEditingName] = useState(task.pendingRename || false)
@@ -92,9 +139,11 @@ export default function TaskItem({
   const subRef = useRef(null)
 
   const isGroup = task.type === 'group'
-  const completedSubs = isGroup ? task.children?.filter(c => c.completed).length : 0
-  const totalSubs = isGroup ? task.children?.length : 0
+  const completedSubs = isGroup ? (task.children?.filter(c => c.completed).length ?? 0) : 0
+  const totalSubs = isGroup ? (task.children?.length ?? 0) : 0
   const progress = isGroup && totalSubs > 0 ? completedSubs / totalSubs : 0
+
+  const isOverdue = task.dueDate && Date.now() > task.dueDate && !task.completed
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -133,6 +182,16 @@ export default function TaskItem({
     setAddingSubTask(false)
   }
 
+  const borderRadius = isGroup ? 24 : 20
+
+  const cardBorder = isDropTarget
+    ? 'rgba(255,255,255,0.2)'
+    : task.completed
+    ? 'rgba(74,222,128,0.4)'
+    : isOverdue
+    ? 'rgba(255,80,80,0.35)'
+    : 'rgba(255,255,255,0.07)'
+
   return (
     <motion.div
       ref={setNodeRef}
@@ -153,7 +212,7 @@ export default function TaskItem({
             exit={{ opacity: 0 }}
             className="absolute inset-0 pointer-events-none"
             style={{
-              borderRadius: isGroup ? 24 : 20,
+              borderRadius,
               border: '1.5px solid rgba(255,255,255,0.4)',
               boxShadow: '0 0 0 4px rgba(255,255,255,0.06), inset 0 0 20px rgba(255,255,255,0.03)',
               zIndex: 10,
@@ -174,19 +233,33 @@ export default function TaskItem({
             : 'rgba(255,255,255,0.05)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: `1px solid ${isDropTarget ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.07)'}`,
-          borderRadius: isGroup ? 24 : 20,
+          border: `1px solid ${cardBorder}`,
+          borderRadius,
           boxShadow: isDragOverlay
             ? '0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4)'
+            : task.completed
+            ? '0 2px 12px rgba(0,0,0,0.3), 0 0 0 1px rgba(74,222,128,0.08)'
+            : isOverdue
+            ? '0 2px 12px rgba(0,0,0,0.3), 0 0 12px rgba(255,80,80,0.12)'
             : '0 2px 12px rgba(0,0,0,0.3)',
           cursor: isDragging ? 'grabbing' : 'grab',
           userSelect: 'none',
           WebkitUserSelect: 'none',
         }}
       >
+        {/* Urgency gradient — rendered before content so it's behind */}
+        {!task.completed && !isDragOverlay && (
+          <UrgencyGradient
+            key={gradientTick}
+            dueDate={task.dueDate}
+            createdAt={task.createdAt}
+            borderRadius={borderRadius}
+          />
+        )}
+
         {/* Group progress bar */}
         {isGroup && totalSubs > 0 && (
-          <div className="absolute top-0 left-0 right-0 h-px overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="absolute top-0 left-0 right-0 h-px overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', zIndex: 1 }}>
             <motion.div
               className="h-full"
               style={{ background: 'rgba(255,255,255,0.5)' }}
@@ -198,14 +271,19 @@ export default function TaskItem({
         )}
 
         {/* Main row */}
-        <div className="flex items-center gap-3 px-4 py-3.5">
+        <div className="flex items-center gap-3 px-4 py-3.5 relative" style={{ zIndex: 1 }}>
           {/* Checkbox */}
           <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
             <CheckCircle checked={task.completed} onToggle={() => onToggle(task.id)} />
           </div>
 
-          {/* Title */}
-          <div className="flex-1 min-w-0">
+          {/* Title + due badge — tapping opens detail */}
+          <div
+            className="flex-1 min-w-0"
+            onPointerDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+            onClick={() => !editingName && onExpand?.(task.id)}
+          >
             {editingName && isGroup ? (
               <input
                 ref={nameRef}
@@ -227,18 +305,34 @@ export default function TaskItem({
               <span
                 className="block text-sm font-medium truncate select-none"
                 style={{
-                  color: task.completed ? 'rgba(255,255,255,0.25)' : '#f4f4f5',
-                  textDecoration: task.completed ? 'line-through' : 'none',
-                  cursor: isGroup ? 'pointer' : 'default',
+                  color: task.completed ? 'rgba(255,255,255,0.6)' : '#f4f4f5',
+                  cursor: 'pointer',
                 }}
-                onDoubleClick={() => isGroup && setEditingName(true)}
+                onDoubleClick={e => { e.stopPropagation(); isGroup && setEditingName(true) }}
               >
                 {task.title}
               </span>
             )}
+
+            {/* Due date badge */}
+            {task.dueDate && !task.completed && (
+              <motion.span
+                initial={{ opacity: 0, y: 2 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="inline-flex items-center gap-1 text-xs mt-0.5"
+                style={{ color: isOverdue ? 'rgba(255,100,100,0.85)' : 'rgba(255,255,255,0.38)' }}
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 6v6l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                {formatShortDue(task.dueDate)}
+              </motion.span>
+            )}
+
             {isGroup && (
-              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                {completedSubs}/{totalSubs} complete
+              <span className="block text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                {totalSubs === 0 ? 'empty' : `${completedSubs}/${totalSubs} complete`}
               </span>
             )}
           </div>
@@ -266,7 +360,7 @@ export default function TaskItem({
               </motion.button>
             )}
 
-            {/* Delete — always visible */}
+            {/* Delete */}
             <motion.button
               whileTap={{ scale: 0.8 }}
               whileHover={{ scale: 1.1 }}
@@ -291,6 +385,7 @@ export default function TaskItem({
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.25, ease: 'easeInOut' }}
                 className="overflow-hidden"
+                style={{ position: 'relative', zIndex: 1 }}
               >
                 <div
                   className="mx-4 mb-3 rounded-2xl px-3 py-2"
@@ -298,8 +393,24 @@ export default function TaskItem({
                   onPointerDown={e => e.stopPropagation()}
                   onTouchStart={e => e.stopPropagation()}
                 >
+                  {totalSubs === 0 && !addingSubTask && (
+                    <div className="flex items-center gap-2 py-1.5 px-1">
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>No tasks in this group</span>
+                    </div>
+                  )}
+
                   {task.children?.map(sub => (
+<<<<<<< HEAD
                     <SubTaskRow key={sub.id} sub={sub} groupId={task.id} onToggle={onToggleSub} onDelete={onDeleteSub} />
+=======
+                    <SubTaskRow
+                      key={sub.id}
+                      sub={sub}
+                      groupId={task.id}
+                      onToggle={onToggleSub}
+                      onDelete={onDeleteSub}
+                    />
+>>>>>>> 834d81d (feat: subtask controls, due dates, task expansion, and UX polish)
                   ))}
 
                   {addingSubTask ? (

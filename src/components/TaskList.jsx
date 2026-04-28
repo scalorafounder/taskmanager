@@ -16,7 +16,11 @@ import {
 import { AnimatePresence, motion } from 'framer-motion'
 import TaskItem from './TaskItem'
 
-const MERGE_THRESHOLD_MS = 400 // how long hover before merge triggers
+const MERGE_THRESHOLD_MS = 400
+
+function findSubtaskParent(tasks, childId) {
+  return tasks.find(t => t.type === 'group' && t.children?.some(c => c.id === childId)) || null
+}
 
 export default function TaskList({
   tasks,
@@ -28,7 +32,11 @@ export default function TaskList({
   onAddSub,
   onReorder,
   onMerge,
+  onExtract,
+  onExpand,
+  onUpdateTask,
   onClearPendingRename,
+  gradientTick,
   emptyLabel,
 }) {
   const [activeId, setActiveId] = useState(null)
@@ -41,7 +49,12 @@ export default function TaskList({
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
   )
 
-  const activeTask = tasks.find(t => t.id === activeId)
+  const activeTopTask = tasks.find(t => t.id === activeId)
+  const activeSubItem = !activeTopTask && activeId
+    ? tasks.flatMap(t => t.children || []).find(c => c.id === activeId)
+    : null
+
+  const isDraggingSubtask = activeId ? !!findSubtaskParent(tasks, activeId) : false
 
   const handleDragStart = ({ active }) => {
     setActiveId(active.id)
@@ -55,12 +68,16 @@ export default function TaskList({
       return
     }
 
-    // If hovering a different item, start merge timer
+    // Don't trigger merge when dragging a subtask out
+    if (findSubtaskParent(tasks, active.id)) {
+      setOverId(over.id)
+      return
+    }
+
     if (overId !== over.id) {
       setOverId(over.id)
       clearTimeout(hoverTimerRef.current)
       hoverTimerRef.current = setTimeout(() => {
-        // Trigger merge hint — actual merge on drop
         mergeTriggeredRef.current = true
       }, MERGE_THRESHOLD_MS)
     }
@@ -72,6 +89,14 @@ export default function TaskList({
     setOverId(null)
 
     if (!over || active.id === over.id) {
+      mergeTriggeredRef.current = false
+      return
+    }
+
+    // Check if dragging a subtask — always extract it
+    const parentGroup = findSubtaskParent(tasks, active.id)
+    if (parentGroup) {
+      onExtract(parentGroup.id, active.id, over.id)
       mergeTriggeredRef.current = false
       return
     }
@@ -135,8 +160,10 @@ export default function TaskList({
                 onDeleteSub={onDeleteSub}
                 onRename={onRename}
                 onAddSub={onAddSub}
+                onExpand={onExpand}
                 onClearPendingRename={onClearPendingRename}
-                isDropTarget={overId === task.id && activeId !== task.id && mergeTriggeredRef.current}
+                isDropTarget={overId === task.id && activeId !== task.id && mergeTriggeredRef.current && !isDraggingSubtask}
+                gradientTick={gradientTick}
               />
             ))}
           </AnimatePresence>
@@ -144,17 +171,42 @@ export default function TaskList({
       </SortableContext>
 
       <DragOverlay dropAnimation={{ duration: 220, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-        {activeTask && (
+        {activeTopTask ? (
           <TaskItem
-            task={activeTask}
+            task={activeTopTask}
             onToggle={() => {}}
             onToggleSub={() => {}}
             onDelete={() => {}}
+            onDeleteSub={() => {}}
             onRename={() => {}}
             onAddSub={() => {}}
+            onExpand={() => {}}
             isDragOverlay
           />
-        )}
+        ) : activeSubItem ? (
+          <div
+            style={{
+              background: 'rgba(30,30,35,0.98)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 16,
+              padding: '10px 14px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <div style={{
+              width: 18, height: 18, borderRadius: '50%',
+              border: activeSubItem.completed ? 'none' : '1.5px solid rgba(255,255,255,0.3)',
+              background: activeSubItem.completed ? 'rgba(255,255,255,0.9)' : 'transparent',
+              flexShrink: 0,
+            }}/>
+            <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>{activeSubItem.title}</span>
+          </div>
+        ) : null}
       </DragOverlay>
     </DndContext>
   )

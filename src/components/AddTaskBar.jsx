@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-export default function AddTaskBar({ onAdd }) {
+export default function AddTaskBar({ onAdd, onAddGroup }) {
   const [value, setValue] = useState('')
   const [focused, setFocused] = useState(false)
   const inputRef = useRef(null)
@@ -25,7 +25,7 @@ export default function AddTaskBar({ onAdd }) {
             : '0 0 0 1px rgba(255,255,255,0.07), 0 4px 20px rgba(0,0,0,0.4)',
         }}
         transition={{ duration: 0.2 }}
-        className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+        className="flex items-center gap-2 px-4 py-3 rounded-2xl"
         style={{
           background: 'rgba(255,255,255,0.05)',
           backdropFilter: 'blur(20px)',
@@ -45,8 +45,32 @@ export default function AddTaskBar({ onAdd }) {
             color: '#f4f4f5',
             caretColor: '#fff',
             fontSize: '16px',
+            lineHeight: '1.5',
+            verticalAlign: 'middle',
           }}
         />
+
+        {/* Folder + group button — always visible */}
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          onClick={onAddGroup}
+          className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"
+          style={{
+            background: 'rgba(255,255,255,0.07)',
+            border: '1px solid rgba(255,255,255,0.1)',
+          }}
+          title="New group"
+        >
+          <svg width="16" height="14" viewBox="0 0 16 14" fill="none">
+            <path
+              d="M1 3.5C1 2.67 1.67 2 2.5 2H6l1.5 1.5H13.5C14.33 3.5 15 4.17 15 5v6c0 .83-.67 1.5-1.5 1.5h-11C1.67 12.5 1 11.83 1 11V3.5z"
+              stroke="rgba(255,255,255,0.5)"
+              strokeWidth="1.3"
+              strokeLinejoin="round"
+            />
+            <path d="M8 6.5v3M6.5 8h3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeLinecap="round"/>
+          </svg>
+        </motion.button>
 
         <AnimatePresence>
           {value.trim() && (

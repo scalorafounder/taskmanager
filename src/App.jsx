@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import AuthScreen from './components/AuthScreen'
 import TaskList from './components/TaskList'
 import AddTaskBar from './components/AddTaskBar'
+import DueDateSheet from './components/DueDateSheet'
+import TaskDetail from './components/TaskDetail'
 import { useTasks } from './hooks/useTasks'
 import { supabase } from './lib/supabase'
 import './index.css'
@@ -76,10 +78,20 @@ function AppContent() {
   const saveTimer = useRef(null)
   const initialized = useRef(false)
 
+  // Due date sheet: stores the pending task title waiting for a date
+  const [pendingTaskTitle, setPendingTaskTitle] = useState(null)
+
+  // Task detail overlay
+  const [expandedTaskId, setExpandedTaskId] = useState(null)
+
+  // Gradient tick — bumps every 60s to re-render urgency gradients
+  const [gradientTick, setGradientTick] = useState(0)
+
   const {
     tasks, initTasks,
-    addTask, toggleTask, toggleSubTask, deleteTask, deleteSubTask,
+    addTask, updateTask, toggleTask, toggleSubTask, deleteTask,
     renameGroup, addSubTask, reorder, mergeIntoGroup, clearPendingRename,
+    deleteSubTask, extractFromGroup, addGroup,
   } = useTasks()
 
   // Load tasks from Supabase on mount (when signed in)
@@ -102,6 +114,29 @@ function AppContent() {
     }, 800)
     return () => clearTimeout(saveTimer.current)
   }, [tasks, user])
+
+  // Gradient urgency tick — re-renders gradients every 60s
+  useEffect(() => {
+    const t = setInterval(() => setGradientTick(n => n + 1), 60_000)
+    return () => clearInterval(t)
+  }, [])
+
+  // Handle task title submission — open due date sheet
+  const handleAddTaskTitle = (title) => {
+    setPendingTaskTitle(title)
+  }
+
+  // Called by DueDateSheet on confirm or skip
+  const handleDueDateConfirm = (dueDate) => {
+    if (pendingTaskTitle) {
+      addTask(pendingTaskTitle, dueDate, '')
+    }
+    setPendingTaskTitle(null)
+  }
+
+  const expandedTask = expandedTaskId
+    ? tasks.find(t => t.id === expandedTaskId)
+    : null
 
   const inProgress = tasks.filter(t => !t.completed)
   const completed = tasks.filter(t => t.completed)
@@ -200,7 +235,11 @@ function AppContent() {
               onAddSub={addSubTask}
               onReorder={reorder}
               onMerge={mergeIntoGroup}
+              onExtract={extractFromGroup}
+              onExpand={setExpandedTaskId}
+              onUpdateTask={updateTask}
               onClearPendingRename={clearPendingRename}
+              gradientTick={gradientTick}
               emptyLabel={tab === 'inprogress' ? 'No tasks yet — add one below' : 'Nothing completed yet'}
             />
           </motion.div>
@@ -215,9 +254,33 @@ function AppContent() {
             background: 'linear-gradient(to top, #0c0c0e 55%, rgba(12,12,14,0) 100%)',
           }}
         >
-          <AddTaskBar onAdd={addTask} />
+          <AddTaskBar onAdd={handleAddTaskTitle} onAddGroup={addGroup} />
         </div>
       )}
+
+      {/* Due date sheet */}
+      <AnimatePresence>
+        {pendingTaskTitle !== null && (
+          <DueDateSheet
+            taskTitle={pendingTaskTitle}
+            onConfirm={handleDueDateConfirm}
+            onSkip={() => handleDueDateConfirm(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Task detail overlay */}
+      <AnimatePresence>
+        {expandedTask && (
+          <TaskDetail
+            task={expandedTask}
+            onClose={() => setExpandedTaskId(null)}
+            onUpdate={updateTask}
+            onToggle={toggleTask}
+            onDelete={deleteTask}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
