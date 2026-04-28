@@ -178,12 +178,17 @@ export default function TaskDetail({ task, onClose, onUpdate, onToggle, onDelete
               <motion.button
                 whileTap={{ scale: 0.85 }}
                 onClick={() => { onDelete(task.id); onClose() }}
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.15)' }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                style={{
+                  background: 'rgba(255,80,80,0.1)',
+                  border: '1px solid rgba(255,80,80,0.2)',
+                  color: 'rgba(255,100,100,0.85)',
+                }}
               >
-                <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
-                  <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
+                Delete
               </motion.button>
             </div>
           </div>
