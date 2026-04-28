@@ -37,7 +37,6 @@ export default function TaskList({
   onExpandSub,
   onUpdateTask,
   onClearPendingRename,
-  gradientTick,
   emptyLabel,
 }) {
   const [activeId, setActiveId] = useState(null)
@@ -165,7 +164,6 @@ export default function TaskList({
                 onExpandSub={onExpandSub}
                 onClearPendingRename={onClearPendingRename}
                 isDropTarget={overId === task.id && activeId !== task.id && mergeTriggeredRef.current && !isDraggingSubtask}
-                gradientTick={gradientTick}
               />
             ))}
           </AnimatePresence>

@@ -4,7 +4,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 
-// ── Shared helpers ─────────────────────────────────────────────────────────────
+// ── CheckCircle ───────────────────────────────────────────────────────────────
 
 function CheckCircle({ checked, onToggle, size = 22 }) {
   return (
@@ -38,6 +38,71 @@ function CheckCircle({ checked, onToggle, size = 22 }) {
   )
 }
 
+// ── TimerBar ──────────────────────────────────────────────────────────────────
+// Glowing bottom bar: fills left→right over the task's lifetime.
+// White → Yellow (≤20% remaining) → Red (overdue). Green when completed.
+
+function TimerBar({ dueDate, createdAt, completed }) {
+  const [now, setNow] = useState(Date.now)
+
+  useEffect(() => {
+    if (completed || !dueDate) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [completed, dueDate])
+
+  // Completed: always full green bar
+  if (completed) {
+    return (
+      <div className="absolute bottom-0 left-0 right-0" style={{ height: 2, zIndex: 2 }}>
+        <div style={{
+          width: '100%', height: '100%',
+          background: 'rgba(74,222,128,0.85)',
+          boxShadow: '0 0 6px rgba(74,222,128,0.9), 0 0 18px rgba(74,222,128,0.45)',
+        }} />
+      </div>
+    )
+  }
+
+  if (!dueDate) return null
+
+  const start = createdAt || (dueDate - 86400000)
+  const total = dueDate - start
+  const fill = Math.max(0, Math.min(1, (now - start) / total))
+
+  const isOverdue  = now >= dueDate
+  const isWarning  = !isOverdue && fill >= 0.8
+
+  const barColor = isOverdue
+    ? 'rgba(255,55,55,0.95)'
+    : isWarning
+    ? 'rgba(255,200,45,0.95)'
+    : 'rgba(255,255,255,0.88)'
+
+  const barGlow = isOverdue
+    ? '0 0 6px rgba(255,55,55,0.9), 0 0 18px rgba(255,55,55,0.45)'
+    : isWarning
+    ? '0 0 6px rgba(255,200,45,0.8), 0 0 18px rgba(255,200,45,0.4)'
+    : '0 0 6px rgba(255,255,255,0.6), 0 0 18px rgba(255,255,255,0.25)'
+
+  return (
+    <div
+      className="absolute bottom-0 left-0 right-0"
+      style={{ height: 2, background: 'rgba(255,255,255,0.05)', zIndex: 2 }}
+    >
+      <div style={{
+        width: `${fill * 100}%`,
+        height: '100%',
+        background: barColor,
+        boxShadow: barGlow,
+        transition: 'background 0.8s ease, box-shadow 0.8s ease',
+      }} />
+    </div>
+  )
+}
+
+// ── formatShortDue ────────────────────────────────────────────────────────────
+
 function formatShortDue(ts) {
   const diffMs = ts - Date.now()
   const diffDays = Math.floor(diffMs / 86400000)
@@ -49,27 +114,9 @@ function formatShortDue(ts) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-function UrgencyGradient({ dueDate, createdAt, borderRadius }) {
-  if (!dueDate) return null
-  const start = createdAt || dueDate - 86400000
-  const urgency = Math.max(0, Math.min(1, (Date.now() - start) / (dueDate - start)))
-  const grayStop = Math.round((1 - urgency) * 85)
-  const redAlpha = (urgency * 0.38).toFixed(2)
-  return (
-    <div
-      className="absolute inset-0 pointer-events-none"
-      style={{
-        borderRadius,
-        background: `linear-gradient(to right, transparent 0%, rgba(180,180,180,0.05) ${grayStop}%, rgba(255,65,65,${redAlpha}) 100%)`,
-        zIndex: 0,
-      }}
-    />
-  )
-}
+// ── SubTaskCard ───────────────────────────────────────────────────────────────
 
-// ── SubTaskCard — full task bar for children inside a group ───────────────────
-
-function SubTaskCard({ sub, groupId, onToggle, onDelete, onExpand, gradientTick }) {
+function SubTaskCard({ sub, groupId, onToggle, onDelete, onExpand }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: sub.id })
   const isOverdue = sub.dueDate && Date.now() > sub.dueDate && !sub.completed
 
@@ -87,21 +134,10 @@ function SubTaskCard({ sub, groupId, onToggle, onDelete, onExpand, gradientTick 
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -6, scale: 0.96 }}
       transition={{ duration: 0.22, ease: [0.34, 1.56, 0.64, 1] }}
-      className="relative overflow-hidden"
-      style={{ borderRadius: 18, opacity: isDragging ? 0.25 : 1 }}
+      style={{ opacity: isDragging ? 0.25 : 1 }}
     >
-      {/* Urgency gradient */}
-      {sub.dueDate && !sub.completed && (
-        <UrgencyGradient
-          key={gradientTick}
-          dueDate={sub.dueDate}
-          createdAt={sub.createdAt}
-          borderRadius={18}
-        />
-      )}
-
       <div
-        className="relative flex items-center gap-3 px-4 py-3 z-10"
+        className="relative overflow-hidden"
         style={{
           background: 'rgba(255,255,255,0.04)',
           border: `1px solid ${borderColor}`,
@@ -113,52 +149,57 @@ function SubTaskCard({ sub, groupId, onToggle, onDelete, onExpand, gradientTick 
             : '0 2px 10px rgba(0,0,0,0.25)',
         }}
       >
-        {/* Checkbox — isolated from drag */}
-        <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-          <CheckCircle checked={sub.completed} onToggle={() => onToggle(groupId, sub.id)} size={20} />
-        </div>
+        <div className="flex items-center gap-3 px-4 py-3 relative" style={{ zIndex: 1 }}>
+          {/* Checkbox */}
+          <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+            <CheckCircle checked={sub.completed} onToggle={() => onToggle(groupId, sub.id)} size={20} />
+          </div>
 
-        {/* Title + due date — drag handle AND expand tap */}
-        <div
-          {...attributes}
-          {...listeners}
-          className="flex-1 min-w-0 touch-none select-none"
-          style={{ cursor: isDragging ? 'grabbing' : 'default' }}
-          onClick={() => !isDragging && onExpand?.(groupId, sub.id)}
-        >
-          <p
-            className="text-sm font-medium truncate"
-            style={{ color: sub.completed ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.88)' }}
+          {/* Title + due — drag handle AND expand tap */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="flex-1 min-w-0 touch-none select-none"
+            style={{ cursor: isDragging ? 'grabbing' : 'default' }}
+            onClick={() => !isDragging && onExpand?.(groupId, sub.id)}
           >
-            {sub.title}
-          </p>
-          {sub.dueDate && !sub.completed && (
-            <span
-              className="inline-flex items-center gap-1 text-xs"
-              style={{ color: isOverdue ? 'rgba(255,100,100,0.85)' : 'rgba(255,255,255,0.38)' }}
+            <p
+              className="text-sm font-medium truncate"
+              style={{ color: sub.completed ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.88)' }}
             >
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                <path d="M12 6v6l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-              {formatShortDue(sub.dueDate)}
-            </span>
-          )}
+              {sub.title}
+            </p>
+            {sub.dueDate && !sub.completed && (
+              <span
+                className="inline-flex items-center gap-1 text-xs"
+                style={{ color: isOverdue ? 'rgba(255,100,100,0.85)' : 'rgba(255,255,255,0.38)' }}
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 6v6l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                {formatShortDue(sub.dueDate)}
+              </span>
+            )}
+          </div>
+
+          {/* Delete */}
+          <motion.button
+            whileTap={{ scale: 0.8 }}
+            onPointerDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onDelete(groupId, sub.id) }}
+            className="w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0"
+            style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)' }}
+          >
+            <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
+              <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </motion.button>
         </div>
 
-        {/* Delete — isolated from drag */}
-        <motion.button
-          whileTap={{ scale: 0.8 }}
-          onPointerDown={e => e.stopPropagation()}
-          onTouchStart={e => e.stopPropagation()}
-          onClick={e => { e.stopPropagation(); onDelete(groupId, sub.id) }}
-          className="w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0"
-          style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)' }}
-        >
-          <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
-            <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </motion.button>
+        {/* Timer bar */}
+        <TimerBar dueDate={sub.dueDate} createdAt={sub.createdAt} completed={sub.completed} />
       </div>
     </motion.div>
   )
@@ -179,7 +220,6 @@ export default function TaskItem({
   onClearPendingRename,
   isDragOverlay = false,
   isDropTarget = false,
-  gradientTick,
 }) {
   const [editingName, setEditingName] = useState(task.pendingRename || false)
   const [nameVal, setNameVal] = useState(task.title)
@@ -241,14 +281,14 @@ export default function TaskItem({
         transition={{ duration: 0.24, ease: [0.34, 1.56, 0.64, 1] }}
         className="relative"
       >
-        {/* Section header row */}
+        {/* Section header */}
         <motion.div
           className="flex items-center gap-2 px-1 pt-3 pb-2"
           animate={isDropTarget ? { backgroundColor: 'rgba(255,255,255,0.04)' } : { backgroundColor: 'transparent' }}
           style={{ borderRadius: 12 }}
           transition={{ duration: 0.18 }}
         >
-          {/* Drag handle for reordering the whole group */}
+          {/* Drag handle */}
           <div
             {...attributes}
             {...listeners}
@@ -265,7 +305,7 @@ export default function TaskItem({
             </svg>
           </div>
 
-          {/* Group name */}
+          {/* Name */}
           {editingName ? (
             <input
               ref={nameRef}
@@ -277,24 +317,18 @@ export default function TaskItem({
                 if (e.key === 'Escape') { setNameVal(task.title); setEditingName(false) }
               }}
               className="bg-transparent focus:outline-none font-bold uppercase tracking-widest"
-              style={{
-                color: 'rgba(255,255,255,0.6)',
-                borderBottom: '1px solid rgba(255,255,255,0.3)',
-                fontSize: '11px',
-                minWidth: 80,
-              }}
+              style={{ color: 'rgba(255,255,255,0.6)', borderBottom: '1px solid rgba(255,255,255,0.3)', fontSize: '11px', minWidth: 80 }}
             />
           ) : (
             <span
               className="text-xs font-bold uppercase tracking-widest select-none"
-              style={{ color: 'rgba(255,255,255,0.4)', cursor: 'default', letterSpacing: '0.08em' }}
+              style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em' }}
               onDoubleClick={() => setEditingName(true)}
             >
               {task.title}
             </span>
           )}
 
-          {/* Divider */}
           <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
 
           {/* Add task */}
@@ -322,7 +356,7 @@ export default function TaskItem({
           </motion.button>
         </motion.div>
 
-        {/* Child task cards (hidden when used as DragOverlay ghost) */}
+        {/* Children */}
         {!isDragOverlay && (
           <div className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
@@ -334,12 +368,11 @@ export default function TaskItem({
                   onToggle={onToggleSub}
                   onDelete={onDeleteSub}
                   onExpand={onExpandSub}
-                  gradientTick={gradientTick}
                 />
               ))}
             </AnimatePresence>
 
-            {/* Inline add input */}
+            {/* Add input */}
             <AnimatePresence>
               {addingSubTask && (
                 <motion.div
@@ -353,10 +386,7 @@ export default function TaskItem({
                     className="flex items-center gap-3 px-4 py-3 rounded-[18px]"
                     style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)' }}
                   >
-                    <div
-                      className="w-5 h-5 rounded-full border border-dashed flex-shrink-0"
-                      style={{ borderColor: 'rgba(255,255,255,0.2)' }}
-                    />
+                    <div className="w-5 h-5 rounded-full border border-dashed flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
                     <input
                       ref={subRef}
                       value={subInput}
@@ -415,7 +445,7 @@ export default function TaskItem({
       transition={{ duration: 0.24, ease: [0.34, 1.56, 0.64, 1] }}
       className="relative"
     >
-      {/* Drop target glow */}
+      {/* Drop-target glow ring */}
       <AnimatePresence>
         {isDropTarget && (
           <motion.div
@@ -459,24 +489,14 @@ export default function TaskItem({
           WebkitUserSelect: 'none',
         }}
       >
-        {/* Urgency gradient */}
-        {!task.completed && !isDragOverlay && (
-          <UrgencyGradient
-            key={gradientTick}
-            dueDate={task.dueDate}
-            createdAt={task.createdAt}
-            borderRadius={borderRadius}
-          />
-        )}
-
-        {/* Main row */}
+        {/* Content row */}
         <div className="flex items-center gap-3 px-4 py-3.5 relative" style={{ zIndex: 1 }}>
           {/* Checkbox */}
           <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
             <CheckCircle checked={task.completed} onToggle={() => onToggle(task.id)} />
           </div>
 
-          {/* Title + due badge — tapping opens detail */}
+          {/* Title + due badge */}
           <div
             className="flex-1 min-w-0"
             onPointerDown={e => e.stopPropagation()}
@@ -520,6 +540,9 @@ export default function TaskItem({
             </motion.button>
           </div>
         </div>
+
+        {/* Timer bar */}
+        <TimerBar dueDate={task.dueDate} createdAt={task.createdAt} completed={task.completed} />
       </div>
     </motion.div>
   )

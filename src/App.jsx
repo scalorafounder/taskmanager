@@ -87,8 +87,6 @@ function AppContent() {
   // Subtask detail overlay: { groupId, childId } | null
   const [expandedSubTask, setExpandedSubTask] = useState(null)
 
-  // Gradient tick — bumps every 60s to re-render urgency gradients
-  const [gradientTick, setGradientTick] = useState(0)
 
   const {
     tasks, initTasks,
@@ -118,11 +116,6 @@ function AppContent() {
     return () => clearTimeout(saveTimer.current)
   }, [tasks, user])
 
-  // Gradient urgency tick — re-renders gradients every 60s
-  useEffect(() => {
-    const t = setInterval(() => setGradientTick(n => n + 1), 60_000)
-    return () => clearInterval(t)
-  }, [])
 
   // Handle task title submission — open due date sheet
   const handleAddTaskTitle = (title) => {
@@ -247,7 +240,6 @@ function AppContent() {
               onExpandSub={(groupId, childId) => setExpandedSubTask({ groupId, childId })}
               onUpdateTask={updateTask}
               onClearPendingRename={clearPendingRename}
-              gradientTick={gradientTick}
               emptyLabel={tab === 'inprogress' ? 'No tasks yet — add one below' : 'Nothing completed yet'}
             />
           </motion.div>
