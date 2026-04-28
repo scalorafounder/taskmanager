@@ -400,9 +400,6 @@ export default function TaskItem({
                   )}
 
                   {task.children?.map(sub => (
-<<<<<<< HEAD
-                    <SubTaskRow key={sub.id} sub={sub} groupId={task.id} onToggle={onToggleSub} onDelete={onDeleteSub} />
-=======
                     <SubTaskRow
                       key={sub.id}
                       sub={sub}
@@ -410,7 +407,6 @@ export default function TaskItem({
                       onToggle={onToggleSub}
                       onDelete={onDeleteSub}
                     />
->>>>>>> 834d81d (feat: subtask controls, due dates, task expansion, and UX polish)
                   ))}
 
                   {addingSubTask ? (
