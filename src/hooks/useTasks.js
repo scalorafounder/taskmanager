@@ -121,6 +121,13 @@ export function useTasks() {
     })
   }, [])
 
+  const updateSubTask = useCallback((groupId, childId, patch) => {
+    setTasks(prev => prev.map(g => {
+      if (g.id !== groupId || g.type !== 'group') return g
+      return { ...g, children: g.children.map(c => c.id === childId ? { ...c, ...patch } : c) }
+    }))
+  }, [])
+
   const clearPendingRename = useCallback((id) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, pendingRename: false } : t))
   }, [])
@@ -171,6 +178,7 @@ export function useTasks() {
     toggleSubTask,
     deleteTask,
     deleteSubTask,
+    updateSubTask,
     renameGroup,
     addSubTask,
     reorder,

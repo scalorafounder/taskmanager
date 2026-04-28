@@ -34,6 +34,7 @@ export default function TaskList({
   onMerge,
   onExtract,
   onExpand,
+  onExpandSub,
   onUpdateTask,
   onClearPendingRename,
   gradientTick,
@@ -161,6 +162,7 @@ export default function TaskList({
                 onRename={onRename}
                 onAddSub={onAddSub}
                 onExpand={onExpand}
+                onExpandSub={onExpandSub}
                 onClearPendingRename={onClearPendingRename}
                 isDropTarget={overId === task.id && activeId !== task.id && mergeTriggeredRef.current && !isDraggingSubtask}
                 gradientTick={gradientTick}

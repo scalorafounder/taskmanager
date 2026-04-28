@@ -81,8 +81,11 @@ function AppContent() {
   // Due date sheet: stores the pending task title waiting for a date
   const [pendingTaskTitle, setPendingTaskTitle] = useState(null)
 
-  // Task detail overlay
+  // Task detail overlay (top-level tasks)
   const [expandedTaskId, setExpandedTaskId] = useState(null)
+
+  // Subtask detail overlay: { groupId, childId } | null
+  const [expandedSubTask, setExpandedSubTask] = useState(null)
 
   // Gradient tick — bumps every 60s to re-render urgency gradients
   const [gradientTick, setGradientTick] = useState(0)
@@ -91,7 +94,7 @@ function AppContent() {
     tasks, initTasks,
     addTask, updateTask, toggleTask, toggleSubTask, deleteTask,
     renameGroup, addSubTask, reorder, mergeIntoGroup, clearPendingRename,
-    deleteSubTask, extractFromGroup, addGroup,
+    deleteSubTask, updateSubTask, extractFromGroup, addGroup,
   } = useTasks()
 
   // Load tasks from Supabase on mount (when signed in)
@@ -136,6 +139,10 @@ function AppContent() {
 
   const expandedTask = expandedTaskId
     ? tasks.find(t => t.id === expandedTaskId)
+    : null
+
+  const expandedSubTaskData = expandedSubTask
+    ? tasks.find(t => t.id === expandedSubTask.groupId)?.children?.find(c => c.id === expandedSubTask.childId)
     : null
 
   const inProgress = tasks.filter(t => !t.completed)
@@ -237,6 +244,7 @@ function AppContent() {
               onMerge={mergeIntoGroup}
               onExtract={extractFromGroup}
               onExpand={setExpandedTaskId}
+              onExpandSub={(groupId, childId) => setExpandedSubTask({ groupId, childId })}
               onUpdateTask={updateTask}
               onClearPendingRename={clearPendingRename}
               gradientTick={gradientTick}
@@ -269,7 +277,7 @@ function AppContent() {
         )}
       </AnimatePresence>
 
-      {/* Task detail overlay */}
+      {/* Task detail overlay — top-level tasks */}
       <AnimatePresence>
         {expandedTask && (
           <TaskDetail
@@ -278,6 +286,19 @@ function AppContent() {
             onUpdate={updateTask}
             onToggle={toggleTask}
             onDelete={deleteTask}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Task detail overlay — subtasks inside groups */}
+      <AnimatePresence>
+        {expandedSubTaskData && (
+          <TaskDetail
+            task={expandedSubTaskData}
+            onClose={() => setExpandedSubTask(null)}
+            onUpdate={(id, patch) => updateSubTask(expandedSubTask.groupId, id, patch)}
+            onToggle={(id) => toggleSubTask(expandedSubTask.groupId, id)}
+            onDelete={(id) => { deleteSubTask(expandedSubTask.groupId, id); setExpandedSubTask(null) }}
           />
         )}
       </AnimatePresence>
