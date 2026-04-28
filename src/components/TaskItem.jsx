@@ -39,8 +39,6 @@ function CheckCircle({ checked, onToggle, size = 22 }) {
 }
 
 // ── TimerBar ──────────────────────────────────────────────────────────────────
-// Glowing bottom bar: fills left→right over the task's lifetime.
-// White → Yellow (≤20% remaining) → Red (overdue). Green when completed.
 
 function TimerBar({ dueDate, createdAt, completed }) {
   const [now, setNow] = useState(Date.now)
@@ -51,7 +49,6 @@ function TimerBar({ dueDate, createdAt, completed }) {
     return () => clearInterval(id)
   }, [completed, dueDate])
 
-  // Completed: always full green bar
   if (completed) {
     return (
       <div className="absolute bottom-0 left-0 right-0" style={{ height: 2, zIndex: 2 }}>
@@ -67,34 +64,22 @@ function TimerBar({ dueDate, createdAt, completed }) {
   if (!dueDate) return null
 
   const start = createdAt || (dueDate - 86400000)
-  const total = dueDate - start
-  const fill = Math.max(0, Math.min(1, (now - start) / total))
-
+  const fill = Math.max(0, Math.min(1, (now - start) / (dueDate - start)))
   const isOverdue  = now >= dueDate
   const isWarning  = !isOverdue && fill >= 0.8
 
-  const barColor = isOverdue
-    ? 'rgba(255,55,55,0.95)'
-    : isWarning
-    ? 'rgba(255,200,45,0.95)'
-    : 'rgba(255,255,255,0.88)'
-
-  const barGlow = isOverdue
+  const barColor = isOverdue ? 'rgba(255,55,55,0.95)' : isWarning ? 'rgba(255,200,45,0.95)' : 'rgba(255,255,255,0.88)'
+  const barGlow  = isOverdue
     ? '0 0 6px rgba(255,55,55,0.9), 0 0 18px rgba(255,55,55,0.45)'
     : isWarning
     ? '0 0 6px rgba(255,200,45,0.8), 0 0 18px rgba(255,200,45,0.4)'
     : '0 0 6px rgba(255,255,255,0.6), 0 0 18px rgba(255,255,255,0.25)'
 
   return (
-    <div
-      className="absolute bottom-0 left-0 right-0"
-      style={{ height: 2, background: 'rgba(255,255,255,0.05)', zIndex: 2 }}
-    >
+    <div className="absolute bottom-0 left-0 right-0" style={{ height: 2, background: 'rgba(255,255,255,0.05)', zIndex: 2 }}>
       <div style={{
-        width: `${fill * 100}%`,
-        height: '100%',
-        background: barColor,
-        boxShadow: barGlow,
+        width: `${fill * 100}%`, height: '100%',
+        background: barColor, boxShadow: barGlow,
         transition: 'background 0.8s ease, box-shadow 0.8s ease',
       }} />
     </div>
@@ -122,86 +107,78 @@ function SubTaskCard({ sub, groupId, onToggle, onDelete, onExpand }) {
 
   const borderColor = sub.completed
     ? 'rgba(74,222,128,0.4)'
-    : isOverdue
-    ? 'rgba(255,80,80,0.35)'
-    : 'rgba(255,255,255,0.07)'
+    : isOverdue ? 'rgba(255,80,80,0.35)' : 'rgba(255,255,255,0.07)'
 
   return (
-    <motion.div
-      ref={setNodeRef}
-      layout
-      initial={{ opacity: 0, y: 8, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -6, scale: 0.96 }}
-      transition={{ duration: 0.22, ease: [0.34, 1.56, 0.64, 1] }}
-      style={{ opacity: isDragging ? 0.25 : 1 }}
-    >
-      <div
-        className="relative overflow-hidden"
-        style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: `1px solid ${borderColor}`,
-          borderRadius: 18,
-          boxShadow: sub.completed
-            ? '0 2px 10px rgba(0,0,0,0.25), 0 0 0 1px rgba(74,222,128,0.08)'
-            : isOverdue
-            ? '0 2px 10px rgba(0,0,0,0.25), 0 0 10px rgba(255,80,80,0.1)'
-            : '0 2px 10px rgba(0,0,0,0.25)',
-        }}
+    <div ref={setNodeRef} style={{ opacity: isDragging ? 0.25 : 1 }}>
+      <motion.div
+        layout={false}
+        initial={{ opacity: 0, y: 8, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -6, scale: 0.96 }}
+        transition={{ duration: 0.22, ease: [0.34, 1.56, 0.64, 1] }}
       >
-        <div className="flex items-center gap-3 px-4 py-3 relative" style={{ zIndex: 1 }}>
-          {/* Checkbox */}
-          <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-            <CheckCircle checked={sub.completed} onToggle={() => onToggle(groupId, sub.id)} size={20} />
-          </div>
+        <div
+          className="relative overflow-hidden"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: `1px solid ${borderColor}`,
+            borderRadius: 18,
+            boxShadow: sub.completed
+              ? '0 2px 10px rgba(0,0,0,0.25), 0 0 0 1px rgba(74,222,128,0.08)'
+              : isOverdue ? '0 2px 10px rgba(0,0,0,0.25), 0 0 10px rgba(255,80,80,0.1)'
+              : '0 2px 10px rgba(0,0,0,0.25)',
+          }}
+        >
+          <div className="flex items-center gap-3 px-4 py-3 relative" style={{ zIndex: 1 }}>
+            {/* Checkbox — isolated from drag */}
+            <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+              <CheckCircle checked={sub.completed} onToggle={() => onToggle(groupId, sub.id)} size={20} />
+            </div>
 
-          {/* Title + due — drag handle AND expand tap */}
-          <div
-            {...attributes}
-            {...listeners}
-            className="flex-1 min-w-0 touch-none select-none"
-            style={{ cursor: isDragging ? 'grabbing' : 'default' }}
-            onClick={() => !isDragging && onExpand?.(groupId, sub.id)}
-          >
-            <p
-              className="text-sm font-medium truncate"
-              style={{ color: sub.completed ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.88)' }}
+            {/* Title — drag handle + expand tap */}
+            <div
+              {...attributes}
+              {...listeners}
+              className="flex-1 min-w-0 touch-none select-none"
+              style={{ cursor: isDragging ? 'grabbing' : 'default' }}
+              onClick={() => !isDragging && onExpand?.(groupId, sub.id)}
             >
-              {sub.title}
-            </p>
-            {sub.dueDate && !sub.completed && (
-              <span
-                className="inline-flex items-center gap-1 text-xs"
-                style={{ color: isOverdue ? 'rgba(255,100,100,0.85)' : 'rgba(255,255,255,0.38)' }}
-              >
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M12 6v6l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                {formatShortDue(sub.dueDate)}
-              </span>
-            )}
+              <p className="text-sm font-medium truncate"
+                style={{ color: sub.completed ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.88)' }}>
+                {sub.title}
+              </p>
+              {sub.dueDate && !sub.completed && (
+                <span className="inline-flex items-center gap-1 text-xs"
+                  style={{ color: isOverdue ? 'rgba(255,100,100,0.85)' : 'rgba(255,255,255,0.38)' }}>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M12 6v6l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                  {formatShortDue(sub.dueDate)}
+                </span>
+              )}
+            </div>
+
+            {/* Delete */}
+            <motion.button
+              whileTap={{ scale: 0.8 }}
+              onPointerDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onDelete(groupId, sub.id) }}
+              className="w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0"
+              style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)' }}
+            >
+              <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </motion.button>
           </div>
 
-          {/* Delete */}
-          <motion.button
-            whileTap={{ scale: 0.8 }}
-            onPointerDown={e => e.stopPropagation()}
-            onTouchStart={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onDelete(groupId, sub.id) }}
-            className="w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0"
-            style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)' }}
-          >
-            <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
-              <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </motion.button>
+          <TimerBar dueDate={sub.dueDate} createdAt={sub.createdAt} completed={sub.completed} />
         </div>
-
-        {/* Timer bar */}
-        <TimerBar dueDate={sub.dueDate} createdAt={sub.createdAt} completed={sub.completed} />
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   )
 }
 
@@ -219,6 +196,7 @@ export default function TaskItem({
   onExpandSub,
   onClearPendingRename,
   isDragOverlay = false,
+  isHoverTarget = false,
   isDropTarget = false,
 }) {
   const [editingName, setEditingName] = useState(task.pendingRename || false)
@@ -236,7 +214,9 @@ export default function TaskItem({
     disabled: isDragOverlay,
   })
 
-  const style = {
+  // dnd-kit's transform/transition go on a plain wrapper div — NOT on motion.div
+  // This prevents Framer Motion's layout system from conflicting with dnd-kit transforms
+  const dndStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.3 : 1,
@@ -271,163 +251,168 @@ export default function TaskItem({
   // ── GROUP: section divider + child task cards ─────────────────────────────
   if (isGroup) {
     return (
-      <motion.div
-        ref={setNodeRef}
-        style={style}
-        layout
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -6 }}
-        transition={{ duration: 0.24, ease: [0.34, 1.56, 0.64, 1] }}
-        className="relative"
-      >
-        {/* Section header */}
+      // Plain div owns dnd transforms — motion.div inside handles animations only
+      <div ref={setNodeRef} style={{ ...dndStyle, marginTop: 8 }}>
         <motion.div
-          className="flex items-center gap-2 px-1 pt-3 pb-2"
-          animate={isDropTarget ? { backgroundColor: 'rgba(255,255,255,0.04)' } : { backgroundColor: 'transparent' }}
-          style={{ borderRadius: 12 }}
-          transition={{ duration: 0.18 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.22, ease: [0.34, 1.56, 0.64, 1] }}
         >
-          {/* Drag handle */}
-          <div
-            {...attributes}
-            {...listeners}
-            className="touch-none flex-shrink-0 flex items-center cursor-grab active:cursor-grabbing"
-            style={{ color: 'rgba(255,255,255,0.2)', padding: '2px 4px' }}
+          {/* Section header */}
+          <motion.div
+            className="flex items-center gap-2 px-1 pt-1 pb-2"
+            animate={isDropTarget
+              ? { backgroundColor: 'rgba(255,255,255,0.07)', scale: 1.012 }
+              : isHoverTarget
+              ? { backgroundColor: 'rgba(255,255,255,0.03)', scale: 1.006 }
+              : { backgroundColor: 'transparent', scale: 1 }}
+            style={{ borderRadius: 12, originX: 0.5, originY: 0.5 }}
+            transition={{ duration: 0.18 }}
           >
-            <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
-              <circle cx="2.5" cy="2"  r="1.5"/>
-              <circle cx="7.5" cy="2"  r="1.5"/>
-              <circle cx="2.5" cy="7"  r="1.5"/>
-              <circle cx="7.5" cy="7"  r="1.5"/>
-              <circle cx="2.5" cy="12" r="1.5"/>
-              <circle cx="7.5" cy="12" r="1.5"/>
-            </svg>
-          </div>
-
-          {/* Name */}
-          {editingName ? (
-            <input
-              ref={nameRef}
-              value={nameVal}
-              onChange={e => setNameVal(e.target.value)}
-              onBlur={commitName}
-              onKeyDown={e => {
-                if (e.key === 'Enter') commitName()
-                if (e.key === 'Escape') { setNameVal(task.title); setEditingName(false) }
-              }}
-              className="bg-transparent focus:outline-none font-bold uppercase tracking-widest"
-              style={{ color: 'rgba(255,255,255,0.6)', borderBottom: '1px solid rgba(255,255,255,0.3)', fontSize: '11px', minWidth: 80 }}
-            />
-          ) : (
-            <span
-              className="text-xs font-bold uppercase tracking-widest select-none"
-              style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em' }}
-              onDoubleClick={() => setEditingName(true)}
+            {/* Drag handle */}
+            <div
+              {...attributes}
+              {...listeners}
+              className="touch-none flex-shrink-0 flex items-center cursor-grab active:cursor-grabbing"
+              style={{ color: 'rgba(255,255,255,0.2)', padding: '2px 4px' }}
             >
-              {task.title}
-            </span>
-          )}
+              <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+                <circle cx="2.5" cy="2"  r="1.5"/>
+                <circle cx="7.5" cy="2"  r="1.5"/>
+                <circle cx="2.5" cy="7"  r="1.5"/>
+                <circle cx="7.5" cy="7"  r="1.5"/>
+                <circle cx="2.5" cy="12" r="1.5"/>
+                <circle cx="7.5" cy="12" r="1.5"/>
+              </svg>
+            </div>
 
-          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+            {/* Name */}
+            {editingName ? (
+              <input
+                ref={nameRef}
+                value={nameVal}
+                onChange={e => setNameVal(e.target.value)}
+                onBlur={commitName}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') commitName()
+                  if (e.key === 'Escape') { setNameVal(task.title); setEditingName(false) }
+                }}
+                className="bg-transparent focus:outline-none font-bold uppercase tracking-widest"
+                style={{ color: 'rgba(255,255,255,0.6)', borderBottom: '1px solid rgba(255,255,255,0.3)', fontSize: '11px', minWidth: 80 }}
+              />
+            ) : (
+              <span
+                className="text-xs font-bold uppercase tracking-widest select-none"
+                style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em' }}
+                onDoubleClick={() => setEditingName(true)}
+              >
+                {task.title}
+              </span>
+            )}
 
-          {/* Add task */}
-          <motion.button
-            whileTap={{ scale: 0.85 }}
-            onClick={() => setAddingSubTask(a => !a)}
-            className="w-6 h-6 flex items-center justify-center rounded-lg flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}
-          >
-            <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1v12M1 7h12" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </motion.button>
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
 
-          {/* Delete group */}
-          <motion.button
-            whileTap={{ scale: 0.8 }}
-            onClick={() => onDelete(task.id)}
-            className="w-6 h-6 flex items-center justify-center rounded-lg flex-shrink-0"
-            style={{ background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.15)' }}
-          >
-            <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
-              <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </motion.button>
-        </motion.div>
+            {/* Add task */}
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => setAddingSubTask(a => !a)}
+              className="w-6 h-6 flex items-center justify-center rounded-lg flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}
+            >
+              <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1v12M1 7h12" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </motion.button>
 
-        {/* Children */}
-        {!isDragOverlay && (
-          <div className="flex flex-col gap-2">
-            <AnimatePresence initial={false}>
-              {task.children?.map(sub => (
-                <SubTaskCard
-                  key={sub.id}
-                  sub={sub}
-                  groupId={task.id}
-                  onToggle={onToggleSub}
-                  onDelete={onDeleteSub}
-                  onExpand={onExpandSub}
-                />
-              ))}
-            </AnimatePresence>
+            {/* Delete group */}
+            <motion.button
+              whileTap={{ scale: 0.8 }}
+              onClick={() => onDelete(task.id)}
+              className="w-6 h-6 flex items-center justify-center rounded-lg flex-shrink-0"
+              style={{ background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.15)' }}
+            >
+              <svg width="8" height="8" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </motion.button>
+          </motion.div>
 
-            {/* Add input */}
-            <AnimatePresence>
-              {addingSubTask && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div
-                    className="flex items-center gap-3 px-4 py-3 rounded-[18px]"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)' }}
+          {/* Children */}
+          {!isDragOverlay && (
+            <div className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {task.children?.map(sub => (
+                  <SubTaskCard
+                    key={sub.id}
+                    sub={sub}
+                    groupId={task.id}
+                    onToggle={onToggleSub}
+                    onDelete={onDeleteSub}
+                    onExpand={onExpandSub}
+                  />
+                ))}
+              </AnimatePresence>
+
+              {/* Add input */}
+              <AnimatePresence>
+                {addingSubTask && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
                   >
-                    <div className="w-5 h-5 rounded-full border border-dashed flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-                    <input
-                      ref={subRef}
-                      value={subInput}
-                      onChange={e => setSubInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') submitSub()
-                        if (e.key === 'Escape') { setSubInput(''); setAddingSubTask(false) }
-                      }}
-                      onBlur={submitSub}
-                      placeholder="Task name…"
-                      className="flex-1 bg-transparent focus:outline-none"
-                      style={{ color: 'rgba(255,255,255,0.7)', fontSize: '16px', lineHeight: '1.5' }}
-                    />
-                  </div>
+                    <div
+                      className="flex items-center gap-3 px-4 py-3 rounded-[18px]"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)' }}
+                    >
+                      <div className="w-5 h-5 rounded-full border border-dashed flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
+                      <input
+                        ref={subRef}
+                        value={subInput}
+                        onChange={e => setSubInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') submitSub()
+                          if (e.key === 'Escape') { setSubInput(''); setAddingSubTask(false) }
+                        }}
+                        onBlur={submitSub}
+                        placeholder="Task name…"
+                        className="flex-1 bg-transparent focus:outline-none"
+                        style={{ color: 'rgba(255,255,255,0.7)', fontSize: '16px', lineHeight: '1.5' }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Empty state */}
+              {task.children?.length === 0 && !addingSubTask && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-[18px]"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.06)' }}
+                >
+                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
+                    Empty — tap + to add a task
+                  </span>
                 </motion.div>
               )}
-            </AnimatePresence>
-
-            {/* Empty state */}
-            {task.children?.length === 0 && !addingSubTask && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-[18px]"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.06)' }}
-              >
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
-                  Empty — tap + to add a task
-                </span>
-              </motion.div>
-            )}
-          </div>
-        )}
-      </motion.div>
+            </div>
+          )}
+        </motion.div>
+      </div>
     )
   }
 
   // ── REGULAR TASK ────────────────────────────────────────────────────────────
   const borderRadius = 20
   const cardBorder = isDropTarget
-    ? 'rgba(255,255,255,0.2)'
+    ? 'rgba(255,255,255,0.35)'
+    : isHoverTarget
+    ? 'rgba(255,255,255,0.18)'
     : task.completed
     ? 'rgba(74,222,128,0.4)'
     : isOverdue
@@ -435,115 +420,120 @@ export default function TaskItem({
     : 'rgba(255,255,255,0.07)'
 
   return (
-    <motion.div
-      ref={setNodeRef}
-      style={style}
-      layout
-      initial={{ opacity: 0, y: 10, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -6, scale: 0.96 }}
-      transition={{ duration: 0.24, ease: [0.34, 1.56, 0.64, 1] }}
-      className="relative"
-    >
-      {/* Drop-target glow ring */}
-      <AnimatePresence>
-        {isDropTarget && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              borderRadius,
-              border: '1.5px solid rgba(255,255,255,0.4)',
-              boxShadow: '0 0 0 4px rgba(255,255,255,0.06), inset 0 0 20px rgba(255,255,255,0.03)',
-              zIndex: 10,
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <div
-        {...attributes}
-        {...listeners}
-        className="relative overflow-hidden touch-none"
-        style={{
-          background: isDragOverlay
-            ? 'rgba(30,30,35,0.98)'
-            : isDropTarget
-            ? 'rgba(255,255,255,0.09)'
-            : 'rgba(255,255,255,0.05)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: `1px solid ${cardBorder}`,
-          borderRadius,
-          boxShadow: isDragOverlay
-            ? '0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4)'
-            : task.completed
-            ? '0 2px 12px rgba(0,0,0,0.3), 0 0 0 1px rgba(74,222,128,0.08)'
-            : isOverdue
-            ? '0 2px 12px rgba(0,0,0,0.3), 0 0 12px rgba(255,80,80,0.12)'
-            : '0 2px 12px rgba(0,0,0,0.3)',
-          cursor: isDragging ? 'grabbing' : 'grab',
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
+    // Plain div: owns dnd-kit ref + transform (no layout animation here)
+    <div ref={setNodeRef} style={dndStyle}>
+      <motion.div
+        initial={{ opacity: 0, y: 10, scale: 0.97 }}
+        animate={{
+          opacity: 1, y: 0,
+          scale: isDropTarget ? 1.025 : isHoverTarget ? 1.012 : 1,
         }}
+        exit={{ opacity: 0, y: -6, scale: 0.96 }}
+        transition={{ duration: 0.22, ease: [0.34, 1.56, 0.64, 1] }}
+        className="relative"
       >
-        {/* Content row */}
-        <div className="flex items-center gap-3 px-4 py-3.5 relative" style={{ zIndex: 1 }}>
-          {/* Checkbox */}
-          <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-            <CheckCircle checked={task.completed} onToggle={() => onToggle(task.id)} />
-          </div>
+        {/* Strong merge ring — shown when 400 ms hover fires */}
+        <AnimatePresence>
+          {isDropTarget && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                borderRadius,
+                border: '1.5px solid rgba(255,255,255,0.5)',
+                boxShadow: '0 0 0 4px rgba(255,255,255,0.08), inset 0 0 20px rgba(255,255,255,0.04)',
+                zIndex: 10,
+              }}
+            />
+          )}
+        </AnimatePresence>
 
-          {/* Title + due badge */}
-          <div
-            className="flex-1 min-w-0"
-            onPointerDown={e => e.stopPropagation()}
-            onTouchStart={e => e.stopPropagation()}
-            onClick={() => onExpand?.(task.id)}
-          >
-            <span
-              className="block text-sm font-medium truncate select-none"
-              style={{ color: task.completed ? 'rgba(255,255,255,0.6)' : '#f4f4f5' }}
+        <div
+          {...attributes}
+          {...listeners}
+          className="relative overflow-hidden touch-none"
+          style={{
+            background: isDragOverlay
+              ? 'rgba(30,30,35,0.98)'
+              : isDropTarget
+              ? 'rgba(255,255,255,0.1)'
+              : isHoverTarget
+              ? 'rgba(255,255,255,0.07)'
+              : 'rgba(255,255,255,0.05)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: `1px solid ${cardBorder}`,
+            borderRadius,
+            boxShadow: isDragOverlay
+              ? '0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4)'
+              : task.completed
+              ? '0 2px 12px rgba(0,0,0,0.3), 0 0 0 1px rgba(74,222,128,0.08)'
+              : isOverdue
+              ? '0 2px 12px rgba(0,0,0,0.3), 0 0 12px rgba(255,80,80,0.12)'
+              : '0 2px 12px rgba(0,0,0,0.3)',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+          }}
+        >
+          {/* Content row */}
+          <div className="flex items-center gap-3 px-4 py-3.5 relative" style={{ zIndex: 1 }}>
+            {/* Checkbox — isolated from drag */}
+            <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+              <CheckCircle checked={task.completed} onToggle={() => onToggle(task.id)} />
+            </div>
+
+            {/* Title + due badge
+                NO stopPropagation on pointer events here — allows drag sensor to activate.
+                dnd-kit suppresses onClick automatically when a drag gesture occurred,
+                so short-tap = expand, hold/move = drag. */}
+            <div
+              className="flex-1 min-w-0"
+              onClick={() => onExpand?.(task.id)}
             >
-              {task.title}
-            </span>
-            {task.dueDate && !task.completed && (
-              <motion.span
-                initial={{ opacity: 0, y: 2 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="inline-flex items-center gap-1 text-xs mt-0.5"
-                style={{ color: isOverdue ? 'rgba(255,100,100,0.85)' : 'rgba(255,255,255,0.38)' }}
+              <span
+                className="block text-sm font-medium truncate select-none"
+                style={{ color: task.completed ? 'rgba(255,255,255,0.6)' : '#f4f4f5' }}
               >
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M12 6v6l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                {task.title}
+              </span>
+              {task.dueDate && !task.completed && (
+                <motion.span
+                  initial={{ opacity: 0, y: 2 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="inline-flex items-center gap-1 text-xs mt-0.5"
+                  style={{ color: isOverdue ? 'rgba(255,100,100,0.85)' : 'rgba(255,255,255,0.38)' }}
+                >
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M12 6v6l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                  {formatShortDue(task.dueDate)}
+                </motion.span>
+              )}
+            </div>
+
+            {/* Delete — isolated from drag */}
+            <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+              <motion.button
+                whileTap={{ scale: 0.8 }}
+                whileHover={{ scale: 1.1 }}
+                onClick={() => onDelete(task.id)}
+                className="w-7 h-7 flex items-center justify-center rounded-full"
+                style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)' }}
+              >
+                <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-                {formatShortDue(task.dueDate)}
-              </motion.span>
-            )}
+              </motion.button>
+            </div>
           </div>
 
-          {/* Delete */}
-          <div onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-            <motion.button
-              whileTap={{ scale: 0.8 }}
-              whileHover={{ scale: 1.1 }}
-              onClick={() => onDelete(task.id)}
-              className="w-7 h-7 flex items-center justify-center rounded-full"
-              style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,80,80,0.15)' }}
-            >
-              <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
-                <path d="M2 2l10 10M12 2L2 12" stroke="rgba(255,100,100,0.8)" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </motion.button>
-          </div>
+          <TimerBar dueDate={task.dueDate} createdAt={task.createdAt} completed={task.completed} />
         </div>
-
-        {/* Timer bar */}
-        <TimerBar dueDate={task.dueDate} createdAt={task.createdAt} completed={task.completed} />
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   )
 }

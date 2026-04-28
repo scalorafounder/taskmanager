@@ -41,12 +41,13 @@ export default function TaskList({
 }) {
   const [activeId, setActiveId] = useState(null)
   const [overId, setOverId] = useState(null)
+  const [mergeReady, setMergeReady] = useState(false)
   const hoverTimerRef = useRef(null)
   const mergeTriggeredRef = useRef(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   )
 
   const activeTopTask = tasks.find(t => t.id === activeId)
@@ -59,6 +60,7 @@ export default function TaskList({
   const handleDragStart = ({ active }) => {
     setActiveId(active.id)
     mergeTriggeredRef.current = false
+    setMergeReady(false)
   }
 
   const handleDragOver = ({ active, over }) => {
@@ -76,9 +78,11 @@ export default function TaskList({
 
     if (overId !== over.id) {
       setOverId(over.id)
+      setMergeReady(false)
       clearTimeout(hoverTimerRef.current)
       hoverTimerRef.current = setTimeout(() => {
         mergeTriggeredRef.current = true
+        setMergeReady(true)
       }, MERGE_THRESHOLD_MS)
     }
   }
@@ -87,6 +91,7 @@ export default function TaskList({
     clearTimeout(hoverTimerRef.current)
     setActiveId(null)
     setOverId(null)
+    setMergeReady(false)
 
     if (!over || active.id === over.id) {
       mergeTriggeredRef.current = false
@@ -97,6 +102,14 @@ export default function TaskList({
     const parentGroup = findSubtaskParent(tasks, active.id)
     if (parentGroup) {
       onExtract(parentGroup.id, active.id, over.id)
+      mergeTriggeredRef.current = false
+      return
+    }
+
+    // Groups are never merge-able — always reorder
+    const activeIsGroup = tasks.find(t => t.id === active.id)?.type === 'group'
+    if (activeIsGroup) {
+      onReorder(active.id, over.id)
       mergeTriggeredRef.current = false
       return
     }
@@ -113,6 +126,7 @@ export default function TaskList({
     clearTimeout(hoverTimerRef.current)
     setActiveId(null)
     setOverId(null)
+    setMergeReady(false)
     mergeTriggeredRef.current = false
   }
 
@@ -163,7 +177,8 @@ export default function TaskList({
                 onExpand={onExpand}
                 onExpandSub={onExpandSub}
                 onClearPendingRename={onClearPendingRename}
-                isDropTarget={overId === task.id && activeId !== task.id && mergeTriggeredRef.current && !isDraggingSubtask}
+                isHoverTarget={overId === task.id && activeId !== task.id && !mergeReady && !isDraggingSubtask}
+                isDropTarget={overId === task.id && activeId !== task.id && mergeReady && !isDraggingSubtask}
               />
             ))}
           </AnimatePresence>

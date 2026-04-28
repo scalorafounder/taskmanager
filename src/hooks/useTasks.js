@@ -61,7 +61,7 @@ export function useTasks() {
   }, [])
 
   const addSubTask = useCallback((groupId, title) => {
-    const sub = { id: uid(), title, completed: false }
+    const sub = { id: uid(), title, completed: false, dueDate: null, description: '', createdAt: Date.now() }
     setTasks(prev => prev.map(g =>
       g.id === groupId && g.type === 'group'
         ? { ...g, children: [...g.children, sub] }
@@ -87,8 +87,18 @@ export function useTasks() {
       const dropTask = prev.find(t => t.id === dropId)
       if (!dragTask || !dropTask) return prev
 
+      // Groups are never merge-able — should be caught upstream, but guard here too
+      if (dragTask.type === 'group') return prev
+
+      const toChild = (t) => ({
+        id: t.id, title: t.title, completed: t.completed,
+        dueDate: t.dueDate ?? null,
+        description: t.description ?? '',
+        createdAt: t.createdAt ?? Date.now(),
+      })
+
       if (dropTask.type === 'group') {
-        const newChild = { id: dragTask.id, title: dragTask.title, completed: dragTask.completed }
+        const newChild = toChild(dragTask)
         const updated = prev.map(t => {
           if (t.id === dropId) {
             const newChildren = [...t.children, newChild]
@@ -105,10 +115,7 @@ export function useTasks() {
         title: 'New Group',
         completed: false,
         type: 'group',
-        children: [
-          { id: dropTask.id, title: dropTask.title, completed: dropTask.completed },
-          { id: dragTask.id, title: dragTask.title, completed: dragTask.completed },
-        ],
+        children: [toChild(dropTask), toChild(dragTask)],
         createdAt: Date.now(),
         pendingRename: true,
       }
@@ -140,7 +147,13 @@ export function useTasks() {
       if (!child) return prev
 
       const updatedGroup = { ...group, children: (group.children || []).filter(c => c.id !== childId) }
-      const newTask = { id: child.id, title: child.title, completed: child.completed, type: 'task', createdAt: Date.now() }
+      const newTask = {
+        id: child.id, title: child.title, completed: child.completed,
+        type: 'task',
+        dueDate: child.dueDate ?? null,
+        description: child.description ?? '',
+        createdAt: child.createdAt ?? Date.now(),
+      }
 
       const withUpdatedGroup = prev.map(t => t.id === groupId ? updatedGroup : t)
       const overIdx = withUpdatedGroup.findIndex(t => t.id === overTaskId)
